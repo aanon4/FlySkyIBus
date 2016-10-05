@@ -28,7 +28,7 @@ void FlySkyIBus::loop(void)
   while (stream->available() > 0)
   {
     uint32_t now = millis();
-    if (now - last > PROTOCOL_TIMEOUT)
+    if (now - last >= PROTOCOL_TIMEOUT)
     {
       state = WAIT_SYNC0;
     }

@@ -25,10 +25,10 @@ private:
     GET_CHKSUMH
   };
 
-  static const uint8_t PROTOCOL_SYNC0 = 0x20;
-  static const uint8_t PROTOCOL_SYNC1 = 0x40;
+  static const uint8_t PROTOCOL_SYNC0 = 0x20; // Actually packet length
+  static const uint8_t PROTOCOL_SYNC1 = 0x40; // Actually command byte
   static const uint8_t PROTOCOL_LENGTH = 28;
-  static const uint8_t PROTOCOL_TIMEOUT = 3000;
+  static const uint8_t PROTOCOL_TIMEOUT = 2;
   static const uint8_t PROTOCOL_CHANNELS = PROTOCOL_LENGTH / 2;
 
   uint8_t state;
