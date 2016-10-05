@@ -16,9 +16,10 @@ void FlySkyIBus::begin(HardwareSerial& serial)
 void FlySkyIBus::begin(Stream& stream)
 {
   this->stream = &stream;
-  this->state = WAIT_SYNC0;
+  this->state = DISCARD;
   this->last = millis();
   this->ptr = 0;
+  this->len = 0;
   this->chksum = 0;
   this->lchksum = 0;
 }
@@ -28,35 +29,33 @@ void FlySkyIBus::loop(void)
   while (stream->available() > 0)
   {
     uint32_t now = millis();
-    if (now - last >= PROTOCOL_TIMEOUT)
+    if (now - last >= PROTOCOL_TIMEGAP)
     {
-      state = WAIT_SYNC0;
+      state = GET_LENGTH;
     }
     last = now;
     
     uint8_t v = stream->read();
     switch (state)
     {
-      case WAIT_SYNC0:
-        if (v == PROTOCOL_SYNC0)
+      case GET_LENGTH:
+        if (v <= PROTOCOL_LENGTH)
         {
-          state = WAIT_SYNC1;
-        }
-        break;
-        
-      case WAIT_SYNC1:
-        if (v == PROTOCOL_SYNC1)
-        {
-          state = GET_DATA;
           ptr = 0;
-          chksum = 0xFFFF - PROTOCOL_SYNC0 - PROTOCOL_SYNC1;
+          len = v - PROTOCOL_OVERHEAD;
+          chksum = 0xFFFF - v;
+          state = GET_DATA;
+        }
+        else
+        {
+          state = DISCARD;
         }
         break;
 
       case GET_DATA:
         buffer[ptr++] = v;
         chksum -= v;
-        if (ptr == PROTOCOL_LENGTH)
+        if (ptr == len)
         {
           state = GET_CHKSUML;
         }
@@ -68,18 +67,28 @@ void FlySkyIBus::loop(void)
         break;
 
       case GET_CHKSUMH:
-        // Validate checksum before copying data to channels
+        // Validate checksum
         if (chksum == (v << 8) + lchksum)
         {
-          // Valid - extract channel data
-          for (uint8_t i = 0; i < PROTOCOL_LENGTH; i += 2)
+          // Execute command - we only know command 0x40
+          switch (buffer[0])
           {
-            channel[i / 2] = buffer[i] | (buffer[i + 1] << 8);
+            case PROTOCOL_COMMAND40:
+              // Valid - extract channel data
+              for (uint8_t i = 1; i < PROTOCOL_CHANNELS * 2 + 1; i += 2)
+              {
+                channel[i / 2] = buffer[i] | (buffer[i + 1] << 8);
+              }
+              break;
+
+            default:
+              break;
           }
         }
-        state = WAIT_SYNC0;
+        state = DISCARD;
         break;
 
+      case DISCARD:
       default:
         break;
     }
